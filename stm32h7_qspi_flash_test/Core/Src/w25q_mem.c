@@ -26,7 +26,7 @@
  * @{
  */
 //extern QSPI_HandleTypeDef hqspi;	///< Quad SPI HAL Instance
-extern OSPI_HandleTypeDef hospi1;
+//extern OSPI_HandleTypeDef hospi1;
 /// @}
 
 /**
@@ -75,7 +75,7 @@ W25Q_STATE W25Q_Init(void) {
 	W25Q_STATE state;		// temp status variable
 
 	// read id
-	u8_t id = 0;
+	u8_t id= 0;
 	state = W25Q_ReadID(&id);
 	if (state != W25Q_OK)
 		return state;
@@ -175,7 +175,7 @@ W25Q_STATE W25Q_EnableVolatileSR(void) {
  * @return W25Q_STATE enum
  */
 W25Q_STATE W25Q_ReadStatusReg(u8_t *reg_data, u8_t reg_num) {
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 
@@ -232,7 +232,7 @@ W25Q_STATE W25Q_WriteStatusReg(u8_t reg_data, u8_t reg_num) {
 	if (state != W25Q_OK)
 		return state;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 
@@ -512,7 +512,7 @@ W25Q_STATE W25Q_ReadRaw(u8_t *buf, u16_t data_len, u32_t rawAddr) {
 	while (W25Q_IsBusy() == W25Q_BUSY)
 		w25q_delay(1);
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 #if MEM_FLASH_SIZE > 128U
@@ -559,7 +559,7 @@ W25Q_STATE W25Q_ReadRaw(u8_t *buf, u16_t data_len, u32_t rawAddr) {
  * @return W25Q_STATE enum
  */
 W25Q_STATE W25Q_SingleRead(u8_t *buf, u32_t len, u32_t Addr) {
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 #if MEM_FLASH_SIZE > 128U
@@ -762,7 +762,7 @@ W25Q_STATE W25Q_ProgramRaw(u8_t *buf, u16_t data_len, u32_t rawAddr) {
 	if (state != W25Q_OK)
 		return state;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 #if MEM_FLASH_SIZE > 128U
@@ -830,7 +830,7 @@ W25Q_STATE W25Q_EraseSector(u32_t SectAddr) {
 	if (state != W25Q_OK)
 		return state;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 #if MEM_FLASH_SIZE > 128U
@@ -893,7 +893,7 @@ W25Q_STATE W25Q_EraseBlock(u32_t BlockAddr, u8_t size) {
 	if (state != W25Q_OK)
 		return state;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 
@@ -956,7 +956,7 @@ W25Q_STATE W25Q_EraseChip(void) {
 	if (state != W25Q_OK)
 		return state;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_CHIP_ERASE;	 // Command
@@ -1007,7 +1007,7 @@ W25Q_STATE W25Q_ProgSuspend(void) {
 	if (W25Q_BUSY != W25Q_IsBusy())
 		return W25Q_CHIP_IGNORE;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_ERASEPROG_SUSPEND;	 // Command
@@ -1052,7 +1052,7 @@ W25Q_STATE W25Q_ProgResume(void) {
 	if (w25q_status.SUS != 1)
 		return W25Q_CHIP_IGNORE;
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_ERASEPROG_RESUME;	 // Command
@@ -1096,7 +1096,7 @@ W25Q_STATE W25Q_ProgResume(void) {
  * @return W25Q_STATE enum
  */
 W25Q_STATE W25Q_Sleep(void) {
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_POWERDOWN;	 // Command
@@ -1137,7 +1137,7 @@ W25Q_STATE W25Q_Sleep(void) {
  * @return W25Q_STATE enum
  */
 W25Q_STATE W25Q_WakeUP(void) {
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_POWERUP;	 // Command
@@ -1182,7 +1182,7 @@ W25Q_STATE W25Q_WakeUP(void) {
  * @return W25Q_STATE enum
  */
 W25Q_STATE W25Q_ReadID(u8_t *buf) {
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_DEVID;	 // Command
@@ -1392,7 +1392,7 @@ W25Q_STATE W25Q_SwReset(bool force) {
 			W25Q_ProgResume();
 	}
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = W25Q_ENABLE_RST;	 // Command
@@ -1444,7 +1444,7 @@ W25Q_STATE W25Q_SwReset(bool force) {
  * @return W25Q_STATE enum
  */
 W25Q_STATE W25Q_WriteEnable(bool enable) {
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
 	com.Instruction = enable ? W25Q_WRITE_ENABLE : W25Q_WRITE_DISABLE;
@@ -1488,7 +1488,7 @@ W25Q_STATE W25Q_Enter4ByteMode(bool enable) {
 	while (W25Q_IsBusy() == W25Q_BUSY)
 		w25q_delay(1);
 
-	OSPI_RegularCmdTypeDef com;
+	OSPI_RegularCmdTypeDef com = {0,};
 
 	com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE; // HAL_OSPI_INSTRUCTION_...
 	com.Instruction = enable ? W25Q_ENABLE_4B_MODE : W25Q_DISABLE_4B_MODE;

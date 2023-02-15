@@ -42,6 +42,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 OSPI_HandleTypeDef hospi1;
+MDMA_HandleTypeDef hmdma_octospi1_fifo_th;
 
 RTC_HandleTypeDef hrtc;
 
@@ -54,8 +55,9 @@ OSPI_RegularCmdTypeDef com;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART3_UART_Init(void);
+static void MX_MDMA_Init(void);
 static void MX_OCTOSPI1_Init(void);
+static void MX_USART3_UART_Init(void);
 static void MX_RTC_Init(void);
 /* USER CODE BEGIN PFP */
 uint8_t rxData[2];
@@ -99,7 +101,14 @@ int main(void)
   uint8_t rxData;
   W25Q_STATE res_W25Q;
   uint8_t buf[20] = {0x01, 0x02 ,0x03, 0x04, 0x00 };
+  uint8_t temp_buf[2] = {0x00, 0x00};
   /* USER CODE END 1 */
+
+  /* Enable I-Cache---------------------------------------------------------*/
+  SCB_EnableICache();
+
+  /* Enable D-Cache---------------------------------------------------------*/
+  SCB_EnableDCache();
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -119,18 +128,22 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART3_UART_Init();
+  MX_MDMA_Init();
   MX_OCTOSPI1_Init();
+  MX_USART3_UART_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
+  //SCB_CleanDCache();
+  //SCB_CleanInvalidateDCache();
+  //SCB_InvalidateICache
   HAL_UART_Receive_IT(&huart3, rxData, 1);
   printf("hello world !! \r\n");
   // instruction test
 #if 0
-  com.InstructionMode = HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
-  com.Instruction = 0xAA;	 // Command
-  com.AddressSize = HAL_OSPI_ADDRESS_24_BITS;
-  com.AddressMode = HAL_OSPI_ADDRESS_4_LINES;//QSPI_ADDRESS_1_LINE;
+  com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;//HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
+  com.Instruction = 0xAB;	 // Command
+  com.AddressSize = HAL_OSPI_ADDRESS_16_BITS;//HAL_OSPI_ADDRESS_24_BITS;
+  com.AddressMode = HAL_OSPI_ADDRESS_1_LINE;//HAL_OSPI_ADDRESS_4_LINES;//QSPI_ADDRESS_1_LINE;
   com.Address = 0x00000002;
 
   com.AlternateBytesMode = HAL_OSPI_ALTERNATE_BYTES_NONE;
@@ -138,7 +151,7 @@ int main(void)
   com.AlternateBytesSize = HAL_OSPI_ALTERNATE_BYTES_NONE;
 
   com.DummyCycles = 0;
-  com.DataMode = HAL_OSPI_DATA_4_LINES;
+  com.DataMode = HAL_OSPI_DATA_1_LINE;//HAL_OSPI_DATA_4_LINES;
   com.NbData = 4;
 
   com.DataDtrMode = HAL_OSPI_DATA_DTR_DISABLE;
@@ -153,6 +166,50 @@ int main(void)
 	return W25Q_SPI_ERR;
   printf("test complete !! \r\n");
 #endif
+#if 1
+    com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;//HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
+    com.Instruction = 0xAB;    // Command
+    com.AddressSize = HAL_OSPI_ADDRESS_24_BITS;
+    com.AddressMode = HAL_OSPI_ADDRESS_1_LINE;//HAL_OSPI_ADDRESS_4_LINES;//QSPI_ADDRESS_1_LINE;
+    com.Address = 0x00000000;
+  
+    com.AlternateBytesMode = HAL_OSPI_ALTERNATE_BYTES_NONE;
+    com.AlternateBytes = HAL_OSPI_ALTERNATE_BYTES_NONE;
+    com.AlternateBytesSize = HAL_OSPI_ALTERNATE_BYTES_NONE;
+  
+    com.DummyCycles = 0;
+    com.DataMode = HAL_OSPI_DATA_1_LINE;//HAL_OSPI_DATA_4_LINES;
+    com.NbData = 1;
+  
+    com.DataDtrMode = HAL_OSPI_DATA_DTR_DISABLE;
+    //com.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+    com.SIOOMode = HAL_OSPI_SIOO_INST_EVERY_CMD;
+    if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+          != HAL_OK)
+      return W25Q_SPI_ERR;
+    printf("qspi command !! \r\n");
+    if (HAL_OSPI_Receive(&hospi1, temp_buf, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+			!= HAL_OK) {
+		printf("[%s > %s : %d]Recv Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+		return W25Q_SPI_ERR;
+	}
+    printf("ID: %x \r\n", temp_buf[0]);
+    temp_buf[0] = 0;
+    printf("test complete !! \r\n");
+    if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+          != HAL_OK)
+      return W25Q_SPI_ERR;
+    printf("qspi command !! \r\n");
+    if (HAL_OSPI_Receive(&hospi1, temp_buf, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+			!= HAL_OK) {
+		printf("[%s > %s : %d]Recv Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+		return W25Q_SPI_ERR;
+	}
+    printf("ID 2: %x \r\n", temp_buf[0]);
+    W25Q_ReadID(temp_buf);
+    printf("ID 3: %x \r\n", temp_buf[0]);
+#endif
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -192,15 +249,16 @@ int main(void)
 	_str.str[1] = 'b';
 	_str.str[2] = 'c';
 	_str.str[3] = '\0';
-	_str.gg = 0.658;
+	_str.gg = 12.658;
 
 	uint16_t len = sizeof(_str);	// length of structure in bytes
-	printf("input data \r\n abc : 0x%02X\r\n dca : 0x%06X\r\n str : %s\r\n gg : %f\r\n", _str.abc, _str.bca, _str.str, _str.gg);
+	printf("input data \r\n abc : 0x%02X\r\n dca : 0x%06X\r\n str : %s\r\n gg : %f|%04X\r\n", _str.abc, _str.bca, _str.str, _str.gg, _str.gg);
 	// program structure
 	W25Q_ProgramData((uint8_t*) &_str, len, ++in_page_shift, page_number);
 	// read structure to another instance
+	//HAL_Delay(20);
 	W25Q_ReadData((uint8_t*) &_str2, len, in_page_shift, page_number);
-	printf("output data \r\n abc : 0x%02X\r\n dca : 0x%06X\r\n str : %s\r\n gg : %f\r\n", _str2.abc, _str2.bca, _str2.str, _str2.gg);
+	printf("output data \r\n abc : 0x%02X\r\n dca : 0x%06X\r\n str : %s\r\n gg : %f|%04X\r\n", _str2.abc, _str2.bca, _str2.str, _str2.gg, _str2.gg);
   #endif
 #endif
   while (1)
@@ -242,7 +300,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 275;
   RCC_OscInitStruct.PLL.PLLP = 1;
-  RCC_OscInitStruct.PLL.PLLQ = 50;
+  RCC_OscInitStruct.PLL.PLLQ = 15;
   RCC_OscInitStruct.PLL.PLLR = 4;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_1;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
@@ -293,8 +351,8 @@ static void MX_OCTOSPI1_Init(void)
   hospi1.Init.FifoThreshold = 1;
   hospi1.Init.DualQuad = HAL_OSPI_DUALQUAD_DISABLE;
   hospi1.Init.MemoryType = HAL_OSPI_MEMTYPE_MICRON;
-  hospi1.Init.DeviceSize = 23;
-  hospi1.Init.ChipSelectHighTime = 1;
+  hospi1.Init.DeviceSize = 17;
+  hospi1.Init.ChipSelectHighTime = 2;
   hospi1.Init.FreeRunningClock = HAL_OSPI_FREERUNCLK_DISABLE;
   hospi1.Init.ClockMode = HAL_OSPI_CLOCK_MODE_0;
   hospi1.Init.WrapSize = HAL_OSPI_WRAP_NOT_SUPPORTED;
@@ -431,6 +489,23 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
+  * Enable MDMA controller clock
+  */
+static void MX_MDMA_Init(void)
+{
+
+  /* MDMA controller clock enable */
+  __HAL_RCC_MDMA_CLK_ENABLE();
+  /* Local variables */
+
+  /* MDMA interrupt initialization */
+  /* MDMA_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(MDMA_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(MDMA_IRQn);
 
 }
 

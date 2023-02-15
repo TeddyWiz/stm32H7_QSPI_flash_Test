@@ -21,6 +21,8 @@ extern "C" {
 
 #include "libs.h"
 
+extern OSPI_HandleTypeDef hospi1;
+
 /**
  * @addtogroup W25Q_Driver
  * @brief W25Q QSPI Driver
