@@ -92,6 +92,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
        loop back received data
      */
      HAL_UART_Receive_IT(&huart3, &rxData, 1);
+     HAL_UART_Transmit(&huart3, &rxData, 1, 10);
      //rx_buffer[rx_index++] = rxData;
      if(rxData == '\n')
     {
@@ -102,7 +103,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
      {
     	 rx_buffer[rx_index++] = rxData;
      }
-     //HAL_UART_Transmit(&huart3, rxData, 1, 10);
+     
 }
 /* USER CODE END PFP */
 
@@ -170,7 +171,7 @@ char qspi_set_parse(char *r_data, QSPI_Set_Data *init_data)
             case 2: //Instruction data
                 seq++;
                 temp = strlen(ptr);
-                printf("instruction data : %s[%d]\r\n", ptr, temp);
+                //printf("instruction data : %s[%d]\r\n", ptr, temp);
                 ret = Hex2Char(ptr, &tempHex);
                 if(ret != 0)
                 {
@@ -183,7 +184,7 @@ char qspi_set_parse(char *r_data, QSPI_Set_Data *init_data)
             case 3: //Address data
                 seq++;
                 temp = strlen(ptr);
-                printf("Address data : %s[%d]\r\n", ptr, temp);
+                //printf("Address data : %s[%d]\r\n", ptr, temp);
                 ret = Hex2Char(ptr, &tempHex);
                 if(ret != 0)
                 {
@@ -245,6 +246,7 @@ char qspi_set_parameter(QSPI_Set_Data *init_data)
 char send_spi_data(int len, char *data)
 {
     com.NbData = len;
+    printf("send data[%d]:%s\r\n >",len, data);
     if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
         != HAL_OK)
     {
@@ -360,7 +362,7 @@ int main(void)
 	return W25Q_SPI_ERR;
   printf("test complete !! \r\n");
 #endif
-#if 1
+#if 0
     com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;//HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
     com.Instruction = 0xAB;    // Command
     com.AddressSize = HAL_OSPI_ADDRESS_24_BITS;
@@ -403,8 +405,10 @@ int main(void)
 	}
     printf("ID 2: %x \r\n", temp_buf[0]);
 #endif
+#if 0
     ret = Hex2Char(testHex, &returnHex);
     printf("ret : %d, hex : %02X \r\n", ret, returnHex);
+    #endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -459,8 +463,12 @@ int main(void)
   printf("CMD List\r\n");
   printf("help : show CMD list\r\n");
   printf("sett : format,dummy cycle,Instruction Data,Addr Data\r\n");
+  printf("example : format=quad, dummy cycle 2, instruction AB, Addr = 1234 \r\n");
+  printf(">sett q,2,AB,1234<LF>  \r\n");
   printf("send : string data \r\n");
   printf("recv : number \r\n");
+  //printf(">>");
+  HAL_UART_Transmit(&huart3, (uint8_t *)">", 1, 0xFFFF);
   while (1)
   {
     /* USER CODE END WHILE */
@@ -469,7 +477,7 @@ int main(void)
     if(rx_flag == 1)
     {
         rx_flag = 0;
-        printf("recv : [%d] %s \n", rx_index ,rx_buffer);
+        printf("recv : [%d] %s \r\n>", rx_index ,rx_buffer);
         if(rx_index < 4)
         {
         //error size
@@ -478,14 +486,14 @@ int main(void)
         {//set
             printf("set spi parameter \r\n");
             qspi_set_parse(rx_buffer+5, &test_data);
-            printf("mode : %c, dummy : %d, Ins : %02x, Addr : %04x\r\n", test_data.mode, test_data.dummy, test_data.instruction, test_data.addr);
+            printf("mode : %c, dummy : %d, Ins : %02x, Addr : %04x\r\n>", test_data.mode, test_data.dummy, test_data.instruction, test_data.addr);
             qspi_set_parameter(&test_data);
         }
         else if(strncmp(rx_buffer, "send", 4) == 0)
         {//set
         	//rx_buffer[rx_index] = 0;
             len = strlen(rx_buffer + 5);
-            printf("send data[%d]\r\n",len);
+            printf("send data[%d]\r\n>",len);
             send_spi_data(len, rx_buffer + 5);
         }
         else if(strncmp(rx_buffer, "recv", 4) == 0)
@@ -495,21 +503,25 @@ int main(void)
             recv_data = (char*)calloc(len + 1, sizeof(char));
             recv_spi_data(len, recv_data);
             //*(recv_data + len) =0;
-            printf("recv spi data[%d]:%s\r\n",len, recv_data);
+            printf("recv spi data[%d]:%s\r\n >",len, recv_data);
             //recv funcion
         }
         else if(strncmp(rx_buffer, "help", 4) == 0)
         {//set
             printf("help : show CMD list\r\n");
             printf("sett : format,dummy cycle,Instruction Data,Addr Data\r\n");
+            printf("example : format=quad, dummy cycle 2, instruction AB, Addr = 1234 \r\n");
+            printf(">sett q,2,AB,1234<LF>  \r\n");
             printf("send : string data \r\n");
-            printf("recv : number \r\n");
+            printf("recv : number \r\n >");
         }
         else
         {//not cmd
-        	printf("do not find cmd \r\n");
+        	printf("do not find cmd \r\n >");
         }
         rx_index = 0;
+        //printf(">>");
+        HAL_UART_Transmit(&huart3, (uint8_t *)">", 1, 0xFFFF);
     }
   }
   /* USER CODE END 3 */
