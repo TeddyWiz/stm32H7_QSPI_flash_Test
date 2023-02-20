@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2022 STMicroelectronics.
+  * Copyright (c) 2023 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -23,7 +23,6 @@
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
-extern MDMA_HandleTypeDef hmdma_octospi1_fifo_th;
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
@@ -136,38 +135,6 @@ void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
     GPIO_InitStruct.Alternate = GPIO_AF11_OCTOSPIM_P1;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-    /* OCTOSPI1 MDMA Init */
-    /* OCTOSPI1_FIFO_TH Init */
-    hmdma_octospi1_fifo_th.Instance = MDMA_Channel0;
-    hmdma_octospi1_fifo_th.Init.Request = MDMA_REQUEST_OCTOSPI1_FIFO_TH;
-    hmdma_octospi1_fifo_th.Init.TransferTriggerMode = MDMA_BUFFER_TRANSFER;
-    hmdma_octospi1_fifo_th.Init.Priority = MDMA_PRIORITY_LOW;
-    hmdma_octospi1_fifo_th.Init.Endianness = MDMA_LITTLE_ENDIANNESS_PRESERVE;
-    hmdma_octospi1_fifo_th.Init.SourceInc = MDMA_SRC_INC_BYTE;
-    hmdma_octospi1_fifo_th.Init.DestinationInc = MDMA_DEST_INC_BYTE;
-    hmdma_octospi1_fifo_th.Init.SourceDataSize = MDMA_SRC_DATASIZE_BYTE;
-    hmdma_octospi1_fifo_th.Init.DestDataSize = MDMA_DEST_DATASIZE_BYTE;
-    hmdma_octospi1_fifo_th.Init.DataAlignment = MDMA_DATAALIGN_PACKENABLE;
-    hmdma_octospi1_fifo_th.Init.BufferTransferLength = 1;
-    hmdma_octospi1_fifo_th.Init.SourceBurst = MDMA_SOURCE_BURST_SINGLE;
-    hmdma_octospi1_fifo_th.Init.DestBurst = MDMA_DEST_BURST_SINGLE;
-    hmdma_octospi1_fifo_th.Init.SourceBlockAddressOffset = 0;
-    hmdma_octospi1_fifo_th.Init.DestBlockAddressOffset = 0;
-    if (HAL_MDMA_Init(&hmdma_octospi1_fifo_th) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    if (HAL_MDMA_ConfigPostRequestMask(&hmdma_octospi1_fifo_th, 0, 0) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(hospi,hmdma,hmdma_octospi1_fifo_th);
-
-    /* OCTOSPI1 interrupt Init */
-    HAL_NVIC_SetPriority(OCTOSPI1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(OCTOSPI1_IRQn);
   /* USER CODE BEGIN OCTOSPI1_MspInit 1 */
 
   /* USER CODE END OCTOSPI1_MspInit 1 */
@@ -205,11 +172,6 @@ void HAL_OSPI_MspDeInit(OSPI_HandleTypeDef* hospi)
 
     HAL_GPIO_DeInit(GPIOE, GPIO_PIN_11);
 
-    /* OCTOSPI1 MDMA DeInit */
-    HAL_MDMA_DeInit(hospi->hmdma);
-
-    /* OCTOSPI1 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(OCTOSPI1_IRQn);
   /* USER CODE BEGIN OCTOSPI1_MspDeInit 1 */
 
   /* USER CODE END OCTOSPI1_MspDeInit 1 */
@@ -235,7 +197,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
   /** Initializes the peripherals clock
   */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
       Error_Handler();
@@ -282,7 +244,44 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
-  if(huart->Instance==USART3)
+  if(huart->Instance==UART9)
+  {
+  /* USER CODE BEGIN UART9_MspInit 0 */
+
+  /* USER CODE END UART9_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_UART9;
+    PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16910CLKSOURCE_D2PCLK2;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Peripheral clock enable */
+    __HAL_RCC_UART9_CLK_ENABLE();
+
+    __HAL_RCC_GPIOG_CLK_ENABLE();
+    /**UART9 GPIO Configuration
+    PG0     ------> UART9_RX
+    PG1     ------> UART9_TX
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF11_UART9;
+    HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+
+    /* UART9 interrupt Init */
+    HAL_NVIC_SetPriority(UART9_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(UART9_IRQn);
+  /* USER CODE BEGIN UART9_MspInit 1 */
+
+  /* USER CODE END UART9_MspInit 1 */
+  }
+  else if(huart->Instance==USART3)
   {
   /* USER CODE BEGIN USART3_MspInit 0 */
 
@@ -330,7 +329,27 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 */
 void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 {
-  if(huart->Instance==USART3)
+  if(huart->Instance==UART9)
+  {
+  /* USER CODE BEGIN UART9_MspDeInit 0 */
+
+  /* USER CODE END UART9_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_UART9_CLK_DISABLE();
+
+    /**UART9 GPIO Configuration
+    PG0     ------> UART9_RX
+    PG1     ------> UART9_TX
+    */
+    HAL_GPIO_DeInit(GPIOG, GPIO_PIN_0|GPIO_PIN_1);
+
+    /* UART9 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(UART9_IRQn);
+  /* USER CODE BEGIN UART9_MspDeInit 1 */
+
+  /* USER CODE END UART9_MspDeInit 1 */
+  }
+  else if(huart->Instance==USART3)
   {
   /* USER CODE BEGIN USART3_MspDeInit 0 */
 

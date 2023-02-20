@@ -1,2 +1,3 @@
 .metadata/
 stm32h7_qspi_flash_test/Debug
+stm32h7_qspi_serial_test/Debug

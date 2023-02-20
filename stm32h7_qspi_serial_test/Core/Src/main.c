@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2022 STMicroelectronics.
+  * Copyright (c) 2023 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -21,8 +21,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "w25q_mem.h"
+
 #include "stdio.h"
+#include "string.h"
+#include "stdlib.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,16 +38,22 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+typedef struct QSPI_Set_Data_t
+{
+    char mode;
+    int dummy;
+    int instruction;
+    int addr;
+}QSPI_Set_Data;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 
 OSPI_HandleTypeDef hospi1;
-MDMA_HandleTypeDef hmdma_octospi1_fifo_th;
 
 RTC_HandleTypeDef hrtc;
 
+UART_HandleTypeDef huart9;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
@@ -55,13 +63,15 @@ OSPI_RegularCmdTypeDef com;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_MDMA_Init(void);
-static void MX_OCTOSPI1_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_OCTOSPI1_Init(void);
 static void MX_RTC_Init(void);
+static void MX_UART9_Init(void);
 /* USER CODE BEGIN PFP */
 uint8_t rxData;
-
+uint8_t rx_buffer[2048]= {0,};
+int rx_index = 0;
+uint8_t rx_flag =0;
 int _write(int fd, char *str, int len)
 {
 	for(int i=0; i<len; i++)
@@ -82,13 +92,190 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
        loop back received data
      */
      HAL_UART_Receive_IT(&huart3, &rxData, 1);
-     HAL_UART_Transmit(&huart3, &rxData, 1, 1000);
+     //rx_buffer[rx_index++] = rxData;
+     if(rxData == '\n')
+    {
+        rx_flag = 1;
+        rx_buffer[rx_index] = 0;
+    }
+     else
+     {
+    	 rx_buffer[rx_index++] = rxData;
+     }
+     //HAL_UART_Transmit(&huart3, rxData, 1, 10);
 }
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+char Hex2Char(char const* szHex, unsigned char *rch)
+{
+    if(*szHex >= '0' && *szHex <= '9')
+            *rch = *szHex - '0';
+    else if(*szHex >= 'A' && *szHex <= 'F')
+            *rch = *szHex - 55; //-'A' + 10
+    else if(*szHex >= 'a' && *szHex <= 'f')
+            *rch = *szHex - 87; //-'a' + 10
+    else
+        //Is not really a Hex string
+        return 1;
+    szHex++;
+    if(*szHex >= '0' && *szHex <= '9')
+        *rch = (*rch << 4) | *szHex - '0';
+    else if(*szHex >= 'A' && *szHex <= 'F')
+        *rch = (*rch << 4) | *szHex - 55; //-'A' + 10;
+    else if(*szHex >= 'a' && *szHex <= 'f')
+        *rch = (*rch << 4) | *szHex - 87; //-'a' + 10
+    else
+        //Is not really a Hex string
+        return 2;
+    return 0;
+}
 
+char qspi_set_parse(char *r_data, QSPI_Set_Data *init_data)
+{
+    int seq = 0;
+    int temp = 0;
+    char ret = 0;
+    unsigned char tempHex = 0;
+    char *ptr = strtok(r_data, ",");
+    while(ptr != NULL)
+    {
+        switch(seq)
+        {
+            case 0: //spi format mode
+                seq++;
+                printf("spi mode : %c \r\n", *ptr);
+                if((*ptr=='s')||(*ptr=='d')||(*ptr=='q'))
+                {
+                    init_data->mode = *ptr;
+                }
+                else
+                {
+                    printf("parse spi mode error \r\n");
+                    return 1;
+                }
+                break;
+            case 1: //dummy cycle
+                seq++;
+                temp = atoi(ptr);
+                printf("dumy cycle : %s, %d\r\n", ptr, temp);
+                if((temp < 0)||(temp > 10))
+                {
+                    printf("dummy cycle value error \r\n");
+                    return 2;
+                }
+                init_data->dummy = temp;
+                break;
+            case 2: //Instruction data
+                seq++;
+                temp = strlen(ptr);
+                printf("instruction data : %s[%d]\r\n", ptr, temp);
+                ret = Hex2Char(ptr, &tempHex);
+                if(ret != 0)
+                {
+                    printf("instruction data value error %02X \r\n", tempHex);
+                    return 3;
+                }
+                printf("instruction data : %02X \r\n", tempHex);
+                init_data->instruction = tempHex;
+                break;
+            case 3: //Address data
+                seq++;
+                temp = strlen(ptr);
+                printf("Address data : %s[%d]\r\n", ptr, temp);
+                ret = Hex2Char(ptr, &tempHex);
+                if(ret != 0)
+                {
+                    printf("address data value error %02X \r\n", tempHex);
+                    return 3;
+                }
+                temp = (int)tempHex;
+                ret = Hex2Char(ptr+2, &tempHex);
+                if(ret != 0)
+                {
+                    printf("address data value error %02X \r\n", tempHex);
+                    return 3;
+                }
+                temp = temp << 8 | tempHex;
+                printf("address data : %04X \r\n", temp);
+                init_data->addr = temp;
+                break;
+        }
+        ptr = strtok(NULL, ",");
+    }
+    return 0;
+}
+char qspi_set_parameter(QSPI_Set_Data *init_data)
+{
+    switch(init_data->mode)
+    {
+        case 's':
+            com.AddressMode = HAL_OSPI_ADDRESS_1_LINE;
+            com.DataMode = HAL_OSPI_DATA_1_LINE;//HAL_OSPI_DATA_4_LINES;
+            break;
+        case 'd':
+            com.AddressMode = HAL_OSPI_ADDRESS_2_LINES;
+            com.DataMode = HAL_OSPI_DATA_2_LINES;
+            break;
+        case 'q':
+            com.AddressMode = HAL_OSPI_ADDRESS_4_LINES;
+            com.DataMode = HAL_OSPI_DATA_4_LINES;
+            break;
+    }
+    com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;//HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
+    com.Instruction = init_data->instruction;//0xAB;    // Command
+    com.AddressSize = HAL_OSPI_ADDRESS_16_BITS;
+    //com.AddressMode = HAL_OSPI_ADDRESS_1_LINE;//HAL_OSPI_ADDRESS_4_LINES;//QSPI_ADDRESS_1_LINE;
+    com.Address = init_data->addr;//0x00000000;
+  
+    com.AlternateBytesMode = HAL_OSPI_ALTERNATE_BYTES_NONE;
+    com.AlternateBytes = HAL_OSPI_ALTERNATE_BYTES_NONE;
+    com.AlternateBytesSize = HAL_OSPI_ALTERNATE_BYTES_NONE;
+  
+    com.DummyCycles = init_data->dummy;
+    //com.DataMode = HAL_OSPI_DATA_1_LINE;//HAL_OSPI_DATA_4_LINES;
+    //com.NbData = 1;
+  
+    com.DataDtrMode = HAL_OSPI_DATA_DTR_DISABLE;
+    //com.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+    com.SIOOMode = HAL_OSPI_SIOO_INST_EVERY_CMD;
+    return 0;
+}
+char send_spi_data(int len, char *data)
+{
+    com.NbData = len;
+    if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+        != HAL_OK)
+    {
+        printf("[%s > %s : %d]CMD Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+        return 1;
+    }
+    if (HAL_OSPI_Transmit(&hospi1, data, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+        != HAL_OK)
+    {
+        printf("[%s > %s : %d]Send Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+        return 2;
+    }
+    return 0;
+}
+char recv_spi_data(int len, char *data)
+{
+    com.NbData = len;
+    if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+          != HAL_OK)
+    {
+        printf("[%s > %s : %d]Cmd Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+        return 1;
+    }
+    if (HAL_OSPI_Receive(&hospi1, data, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+        != HAL_OK) 
+    {
+        printf("[%s > %s : %d]Recv Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+        return 2;
+    }
+    return 0;
+}
 /* USER CODE END 0 */
 
 /**
@@ -99,9 +286,14 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   //uint8_t rxData;
-  W25Q_STATE res_W25Q;
+  char *recv_data = NULL;
   uint8_t buf[20] = {0x01, 0x02 ,0x03, 0x04, 0x00 };
   uint8_t temp_buf[2] = {0x00, 0x00};
+  QSPI_Set_Data test_data;
+  char testHex[2] = "AB";
+  char returnHex = 0;
+  char ret;
+  int len = 0;
   /* USER CODE END 1 */
 
   /* Enable I-Cache---------------------------------------------------------*/
@@ -128,16 +320,18 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_MDMA_Init();
-  MX_OCTOSPI1_Init();
   MX_USART3_UART_Init();
+  MX_OCTOSPI1_Init();
   MX_RTC_Init();
+  MX_UART9_Init();
   /* USER CODE BEGIN 2 */
   //SCB_CleanDCache();
   //SCB_CleanInvalidateDCache();
   //SCB_InvalidateICache
   HAL_UART_Receive_IT(&huart3, &rxData, 1);
+  HAL_UART_Receive_IT(&huart9, &rxData, 1);
   printf("hello world !! \r\n");
+  HAL_UART_Transmit(&huart9, "hello Uart6!! \r\n", 16, 10);
   // instruction test
 #if 0
   com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;//HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
@@ -186,35 +380,36 @@ int main(void)
     com.SIOOMode = HAL_OSPI_SIOO_INST_EVERY_CMD;
     if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
           != HAL_OK)
-      return W25Q_SPI_ERR;
+    	printf("[%s > %s : %d]Cmd Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+      //return W25Q_SPI_ERR;
     printf("qspi command !! \r\n");
     if (HAL_OSPI_Receive(&hospi1, temp_buf, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
 			!= HAL_OK) {
 		printf("[%s > %s : %d]Recv Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
-		return W25Q_SPI_ERR;
+		//return W25Q_SPI_ERR;
 	}
     printf("ID: %x \r\n", temp_buf[0]);
     temp_buf[0] = 0;
     printf("test complete !! \r\n");
     if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
           != HAL_OK)
-      return W25Q_SPI_ERR;
+    	printf("[%s > %s : %d]Cmd Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+      //return W25Q_SPI_ERR;
     printf("qspi command !! \r\n");
     if (HAL_OSPI_Receive(&hospi1, temp_buf, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
 			!= HAL_OK) {
 		printf("[%s > %s : %d]Recv Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
-		return W25Q_SPI_ERR;
+		//return W25Q_SPI_ERR;
 	}
     printf("ID 2: %x \r\n", temp_buf[0]);
-    W25Q_ReadID(temp_buf);
-    printf("ID 3: %x \r\n", temp_buf[0]);
 #endif
-
+    ret = Hex2Char(testHex, &returnHex);
+    printf("ret : %d, hex : %02X \r\n", ret, returnHex);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-#if 1
+#if 0
   res_W25Q = W25Q_Init();		 // init the chip
   printf("Init RES = %d \r\n", (uint8_t)res_W25Q);
 	res_W25Q = W25Q_EraseSector(0); // erase 4K sector - required before recording
@@ -233,7 +428,7 @@ int main(void)
 	res_W25Q = W25Q_ReadByte(&byte_read, in_page_shift, page_number);
   printf("W25Q_ReadByte RES = %d \r\n", (uint8_t)res_W25Q);
 	printf("output byte : %02X\r\n", byte_read);
-#if 1
+#if 0
 	// make example structure
 	struct STR {
 		uint8_t abc;
@@ -261,11 +456,61 @@ int main(void)
 	printf("output data \r\n abc : 0x%02X\r\n dca : 0x%06X\r\n str : %s\r\n gg : %f|%04X\r\n", _str2.abc, _str2.bca, _str2.str, _str2.gg, _str2.gg);
   #endif
 #endif
+  printf("CMD List\r\n");
+  printf("help : show CMD list\r\n");
+  printf("sett : format,dummy cycle,Instruction Data,Addr Data\r\n");
+  printf("send : string data \r\n");
+  printf("recv : number \r\n");
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if(rx_flag == 1)
+    {
+        rx_flag = 0;
+        printf("recv : [%d] %s \n", rx_index ,rx_buffer);
+        if(rx_index < 4)
+        {
+        //error size
+        }
+        else if(strncmp(rx_buffer, "sett", 4) == 0)
+        {//set
+            printf("set spi parameter \r\n");
+            qspi_set_parse(rx_buffer+5, &test_data);
+            printf("mode : %c, dummy : %d, Ins : %02x, Addr : %04x\r\n", test_data.mode, test_data.dummy, test_data.instruction, test_data.addr);
+            qspi_set_parameter(&test_data);
+        }
+        else if(strncmp(rx_buffer, "send", 4) == 0)
+        {//set
+        	//rx_buffer[rx_index] = 0;
+            len = strlen(rx_buffer + 5);
+            printf("send data[%d]\r\n",len);
+            send_spi_data(len, rx_buffer + 5);
+        }
+        else if(strncmp(rx_buffer, "recv", 4) == 0)
+        {//set
+            len = atoi(rx_buffer + 5);
+            printf("recv data [%d]\r\n", len);
+            recv_data = (char*)calloc(len + 1, sizeof(char));
+            recv_spi_data(len, recv_data);
+            //*(recv_data + len) =0;
+            printf("recv spi data[%d]:%s\r\n",len, recv_data);
+            //recv funcion
+        }
+        else if(strncmp(rx_buffer, "help", 4) == 0)
+        {//set
+            printf("help : show CMD list\r\n");
+            printf("sett : format,dummy cycle,Instruction Data,Addr Data\r\n");
+            printf("send : string data \r\n");
+            printf("recv : number \r\n");
+        }
+        else
+        {//not cmd
+        	printf("do not find cmd \r\n");
+        }
+        rx_index = 0;
+    }
   }
   /* USER CODE END 3 */
 }
@@ -289,19 +534,25 @@ void SystemClock_Config(void)
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
+  /** Configure LSE Drive Capability
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSE;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
+  RCC_OscInitStruct.HSICalibrationValue = 64;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 32;
   RCC_OscInitStruct.PLL.PLLN = 275;
   RCC_OscInitStruct.PLL.PLLP = 1;
-  RCC_OscInitStruct.PLL.PLLQ = 14;
-  RCC_OscInitStruct.PLL.PLLR = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 55;
+  RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_1;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
   RCC_OscInitStruct.PLL.PLLFRACN = 0;
@@ -392,9 +643,6 @@ static void MX_RTC_Init(void)
 
   /* USER CODE END RTC_Init 0 */
 
-  RTC_TimeTypeDef sTime = {0};
-  RTC_DateTypeDef sDate = {0};
-
   /* USER CODE BEGIN RTC_Init 1 */
 
   /* USER CODE END RTC_Init 1 */
@@ -413,34 +661,57 @@ static void MX_RTC_Init(void)
   {
     Error_Handler();
   }
-
-  /* USER CODE BEGIN Check_RTC_BKUP */
-
-  /* USER CODE END Check_RTC_BKUP */
-
-  /** Initialize RTC and set the Time and Date
-  */
-  sTime.Hours = 0x0;
-  sTime.Minutes = 0x0;
-  sTime.Seconds = 0x0;
-  sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-  sTime.StoreOperation = RTC_STOREOPERATION_RESET;
-  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
-  sDate.Month = RTC_MONTH_JANUARY;
-  sDate.Date = 0x1;
-  sDate.Year = 0x0;
-
-  if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN RTC_Init 2 */
 
   /* USER CODE END RTC_Init 2 */
+
+}
+
+/**
+  * @brief UART9 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART9_Init(void)
+{
+
+  /* USER CODE BEGIN UART9_Init 0 */
+
+  /* USER CODE END UART9_Init 0 */
+
+  /* USER CODE BEGIN UART9_Init 1 */
+
+  /* USER CODE END UART9_Init 1 */
+  huart9.Instance = UART9;
+  huart9.Init.BaudRate = 115200;
+  huart9.Init.WordLength = UART_WORDLENGTH_8B;
+  huart9.Init.StopBits = UART_STOPBITS_1;
+  huart9.Init.Parity = UART_PARITY_NONE;
+  huart9.Init.Mode = UART_MODE_TX_RX;
+  huart9.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart9.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart9.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart9.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart9.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart9) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart9, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart9, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart9) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART9_Init 2 */
+
+  /* USER CODE END UART9_Init 2 */
 
 }
 
@@ -469,7 +740,8 @@ static void MX_USART3_UART_Init(void)
   huart3.Init.OverSampling = UART_OVERSAMPLING_16;
   huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_DMADISABLEONERROR_INIT;
+  huart3.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
   if (HAL_UART_Init(&huart3) != HAL_OK)
   {
     Error_Handler();
@@ -493,23 +765,6 @@ static void MX_USART3_UART_Init(void)
 }
 
 /**
-  * Enable MDMA controller clock
-  */
-static void MX_MDMA_Init(void)
-{
-
-  /* MDMA controller clock enable */
-  __HAL_RCC_MDMA_CLK_ENABLE();
-  /* Local variables */
-
-  /* MDMA interrupt initialization */
-  /* MDMA_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(MDMA_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(MDMA_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -523,9 +778,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
