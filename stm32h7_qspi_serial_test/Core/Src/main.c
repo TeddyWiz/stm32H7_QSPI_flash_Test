@@ -289,13 +289,18 @@ int main(void)
   /* USER CODE BEGIN 1 */
   //uint8_t rxData;
   char *recv_data = NULL;
+  char *temp_ptr = NULL;
+  char *send_data = NULL;
   uint8_t buf[20] = {0x01, 0x02 ,0x03, 0x04, 0x00 };
   uint8_t temp_buf[2] = {0x00, 0x00};
   QSPI_Set_Data test_data;
   char testHex[2] = "AB";
+  char tempHex = 0;
   char returnHex = 0;
   char ret;
   int len = 0;
+  int temp_len = 0;
+  int i = 0;
   /* USER CODE END 1 */
 
   /* Enable I-Cache---------------------------------------------------------*/
@@ -489,6 +494,38 @@ int main(void)
             printf("mode : %c, dummy : %d, Ins : %02x, Addr : %04x\r\n>", test_data.mode, test_data.dummy, test_data.instruction, test_data.addr);
             qspi_set_parameter(&test_data);
         }
+        else if(strncmp(rx_buffer, "hexs", 4) == 0)
+        {
+        	len = strlen(rx_buffer + 5);
+        	temp_ptr = rx_buffer + 5;
+        	temp_len = len/2;//+ len%2;
+        	send_data = (char*)calloc(temp_len + 1, sizeof(char));
+        	for(i=0; i<temp_len; i++)
+        	{
+        		ret = Hex2Char(temp_ptr+2*i, &tempHex);
+        		if(ret != 0)
+				{
+					printf("HEX data value error %02X \r\n", tempHex);
+					break;
+				}
+        		else
+        		{
+        			send_data[i] = tempHex;
+        		}
+        	}
+			if(ret != 0)
+			{
+				printf("Hex send data[%d]\r\n>",temp_len);
+				for(i=0; i<temp_len; i++)
+				{
+					printf("0x%02x ",send_data[i]);
+				}
+				printf("\r\n");
+				send_spi_data(temp_len, send_data);
+			}
+			free(send_data);
+			//
+        }
         else if(strncmp(rx_buffer, "send", 4) == 0)
         {//set
         	//rx_buffer[rx_index] = 0;
@@ -503,7 +540,13 @@ int main(void)
             recv_data = (char*)calloc(len + 1, sizeof(char));
             recv_spi_data(len, recv_data);
             //*(recv_data + len) =0;
-            printf("recv spi data[%d]:%s\r\n >",len, recv_data);
+            printf("recv spi data[%d]\r\n ",len);
+            for(i= 0; i< len; i++)
+            {
+            	printf("%02X ", recv_data[i]);
+            }
+            printf("\r\n");
+            free(recv_data);
             //recv funcion
         }
         else if(strncmp(rx_buffer, "help", 4) == 0)
