@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define RSTn_Pin GPIO_PIN_4
+#define RSTn_GPIO_Port GPIOF
 #define MCO_Pin GPIO_PIN_0
 #define MCO_GPIO_Port GPIOH
 #define LED_GREEN_Pin GPIO_PIN_0
@@ -71,6 +73,8 @@ void Error_Handler(void);
 #define STLK_VCP_TX_GPIO_Port GPIOD
 #define USB_FS_PWR_EN_Pin GPIO_PIN_10
 #define USB_FS_PWR_EN_GPIO_Port GPIOD
+#define SPI_EN_MOD2_Pin GPIO_PIN_2
+#define SPI_EN_MOD2_GPIO_Port GPIOG
 #define USB_FS_OVCR_Pin GPIO_PIN_7
 #define USB_FS_OVCR_GPIO_Port GPIOG
 #define SWDIO_Pin GPIO_PIN_13

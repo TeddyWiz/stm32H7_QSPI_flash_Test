@@ -1,3 +1,4 @@
+
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -339,6 +340,16 @@ int main(void)
   HAL_UART_Receive_IT(&huart9, &rxData, 1);
   printf("hello world !! \r\n");
   HAL_UART_Transmit(&huart9, "hello Uart6!! \r\n", 16, 10);
+  HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_RESET);
+  HAL_Delay(500);
+  HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_SET);
+  HAL_Delay(500);
+   //SPI CS Test
+
+   HAL_GPIO_WritePin(SPI_EN_MOD2_GPIO_Port, SPI_EN_MOD2_Pin, GPIO_PIN_SET);
+   HAL_Delay(500);
+   HAL_GPIO_WritePin(SPI_EN_MOD2_GPIO_Port, SPI_EN_MOD2_Pin, GPIO_PIN_RESET);
+   HAL_Delay(500); HAL_Delay(500);
   // instruction test
 #if 0
   com.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;//HAL_OSPI_INSTRUCTION_4_LINES;//QSPI_INSTRUCTION_1_LINE; // QSPI_INSTRUCTION_...
