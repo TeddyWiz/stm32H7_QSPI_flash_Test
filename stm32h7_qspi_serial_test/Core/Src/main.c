@@ -1,4 +1,3 @@
-
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -162,7 +161,7 @@ char qspi_set_parse(char *r_data, QSPI_Set_Data *init_data)
                 seq++;
                 temp = atoi(ptr);
                 printf("dumy cycle : %s, %d\r\n", ptr, temp);
-                if((temp < 0)||(temp > 10))
+                if((temp < 0)||(temp > 31))
                 {
                     printf("dummy cycle value error \r\n");
                     return 2;
@@ -288,7 +287,7 @@ char recv_spi_data(int len, char *data)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  //uint8_t rxData;
+  //uint8_t rxData
   char *recv_data = NULL;
   char *temp_ptr = NULL;
   char *send_data = NULL;
@@ -481,8 +480,9 @@ int main(void)
   printf("sett : format,dummy cycle,Instruction Data,Addr Data\r\n");
   printf("example : format=quad, dummy cycle 2, instruction AB, Addr = 1234 \r\n");
   printf(">sett q,2,AB,1234<LF>  \r\n");
-  printf("send : string data \r\n");
-  printf("recv : number \r\n");
+  printf("send : send string data \r\n");
+  printf("hexs : send hex data \r\n");
+  printf("recv : recv count number \r\n");
   //printf(">>");
   HAL_UART_Transmit(&huart3, (uint8_t *)">", 1, 0xFFFF);
   while (1)
@@ -493,7 +493,7 @@ int main(void)
     if(rx_flag == 1)
     {
         rx_flag = 0;
-        printf("recv : [%d] %s \r\n>", rx_index ,rx_buffer);
+        printf("serial recv : [%d] %s \r\n>", rx_index ,rx_buffer);
         if(rx_index < 4)
         {
         //error size
@@ -511,9 +511,11 @@ int main(void)
         	temp_ptr = rx_buffer + 5;
         	temp_len = len/2;//+ len%2;
         	send_data = (char*)calloc(temp_len + 1, sizeof(char));
+        	//printf("hexs send\r\n");
         	for(i=0; i<temp_len; i++)
         	{
         		ret = Hex2Char(temp_ptr+2*i, &tempHex);
+        		//printf("%02x ", tempHex);
         		if(ret != 0)
 				{
 					printf("HEX data value error %02X \r\n", tempHex);
@@ -524,7 +526,8 @@ int main(void)
         			send_data[i] = tempHex;
         		}
         	}
-			if(ret != 0)
+        	//printf("\r\n tet=%d\r\n", ret);
+			if(ret == 0)
 			{
 				printf("Hex send data[%d]\r\n>",temp_len);
 				for(i=0; i<temp_len; i++)
@@ -535,23 +538,20 @@ int main(void)
 				send_spi_data(temp_len, send_data);
 			}
 			free(send_data);
-			//
         }
         else if(strncmp(rx_buffer, "send", 4) == 0)
         {//set
         	//rx_buffer[rx_index] = 0;
             len = strlen(rx_buffer + 5);
-            printf("send data[%d]\r\n>",len);
+            printf("send spi data[%d]\r\n>",len);
             send_spi_data(len, rx_buffer + 5);
         }
         else if(strncmp(rx_buffer, "recv", 4) == 0)
         {//set
             len = atoi(rx_buffer + 5);
-            printf("recv data [%d]\r\n", len);
             recv_data = (char*)calloc(len + 1, sizeof(char));
             recv_spi_data(len, recv_data);
-            //*(recv_data + len) =0;
-            printf("recv spi data[%d]\r\n ",len);
+            printf("recv spi data[%d] : \r\n ",len);
             for(i= 0; i< len; i++)
             {
             	printf("%02X ", recv_data[i]);
@@ -566,8 +566,9 @@ int main(void)
             printf("sett : format,dummy cycle,Instruction Data,Addr Data\r\n");
             printf("example : format=quad, dummy cycle 2, instruction AB, Addr = 1234 \r\n");
             printf(">sett q,2,AB,1234<LF>  \r\n");
-            printf("send : string data \r\n");
-            printf("recv : number \r\n >");
+            printf("send : send string data \r\n");
+		  printf("hexs : send hex data \r\n");
+		  printf("recv : recv count number \r\n");
         }
         else
         {//not cmd
@@ -600,16 +601,11 @@ void SystemClock_Config(void)
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
-  /** Configure LSE Drive Capability
-  */
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
-
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSE;
-  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = 64;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
@@ -845,15 +841,21 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LED_GREEN_Pin|LED_RED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SPI_EN_MOD2_GPIO_Port, SPI_EN_MOD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_YELLOW_GPIO_Port, LED_YELLOW_Pin, GPIO_PIN_RESET);
@@ -863,6 +865,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : RSTn_Pin */
+  GPIO_InitStruct.Pin = RSTn_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(RSTn_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin */
   GPIO_InitStruct.Pin = LED_GREEN_Pin|LED_RED_Pin;
@@ -877,6 +886,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_FS_PWR_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SPI_EN_MOD2_Pin */
+  GPIO_InitStruct.Pin = SPI_EN_MOD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI_EN_MOD2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USB_FS_OVCR_Pin */
   GPIO_InitStruct.Pin = USB_FS_OVCR_Pin;
