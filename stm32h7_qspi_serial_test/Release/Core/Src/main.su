@@ -1,0 +1,10 @@
+../Core/Src/main.c:74:5:_write	24	static
+../Core/Src/main.c:83:6:HAL_UART_RxCpltCallback	8	static
+../Core/Src/main.c:111:6:Hex2Char	0	static
+../Core/Src/main.c:135:6:qspi_set_parse	40	static
+../Core/Src/main.c:209:6:qspi_set_parameter	0	static
+../Core/Src/main.c:245:6:send_spi_data	24	static
+../Core/Src/main.c:265:6:recv_spi_data	8	static
+../Core/Src/main.c:600:6:SystemClock_Config	128	static,ignoring_inline_asm
+../Core/Src/main.c:288:5:main	120	static,ignoring_inline_asm
+../Core/Src/main.c:887:6:Error_Handler	0	static,ignoring_inline_asm

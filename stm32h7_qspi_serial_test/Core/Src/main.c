@@ -53,7 +53,6 @@ OSPI_HandleTypeDef hospi1;
 
 RTC_HandleTypeDef hrtc;
 
-UART_HandleTypeDef huart9;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
@@ -66,8 +65,8 @@ static void MX_GPIO_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_RTC_Init(void);
-static void MX_UART9_Init(void);
 /* USER CODE BEGIN PFP */
+
 uint8_t rxData;
 uint8_t rx_buffer[2048]= {0,};
 int rx_index = 0;
@@ -245,20 +244,22 @@ char qspi_set_parameter(QSPI_Set_Data *init_data)
 }
 char send_spi_data(int len, char *data)
 {
-    com.NbData = len;
+	uint8_t ret_data = 0;
+    com.NbData = (uint32_t)len;
     printf("send data[%d]:%s\r\n >",len, data);
-    if (HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+    if ((ret_data =HAL_OSPI_Command(&hospi1, &com, HAL_OSPI_TIMEOUT_DEFAULT_VALUE))
         != HAL_OK)
     {
-        printf("[%s > %s : %d]CMD Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+        printf("[%s > %s : %d]CMD Error[%02x] \r\n",__FILE__, __FUNCTION__, __LINE__ , ret_data);
         return 1;
     }
-    if (HAL_OSPI_Transmit(&hospi1, data, HAL_OSPI_TIMEOUT_DEFAULT_VALUE)
+    if ((ret_data = HAL_OSPI_Transmit(&hospi1, (uint8_t *)data, HAL_OSPI_TIMEOUT_DEFAULT_VALUE))
         != HAL_OK)
     {
-        printf("[%s > %s : %d]Send Error \r\n",__FILE__, __FUNCTION__, __LINE__ );
+        printf("[%s > %s : %d]Send Error[%02x] \r\n",__FILE__, __FUNCTION__, __LINE__ , ret_data);
         return 2;
     }
+    printf("send complete!!\r\n");
     return 0;
 }
 char recv_spi_data(int len, char *data)
@@ -330,15 +331,14 @@ int main(void)
   MX_USART3_UART_Init();
   MX_OCTOSPI1_Init();
   MX_RTC_Init();
-  MX_UART9_Init();
   /* USER CODE BEGIN 2 */
   //SCB_CleanDCache();
   //SCB_CleanInvalidateDCache();
   //SCB_InvalidateICache
   HAL_UART_Receive_IT(&huart3, &rxData, 1);
-  HAL_UART_Receive_IT(&huart9, &rxData, 1);
+  //HAL_UART_Receive_IT(&huart9, &rxData, 1);
   printf("hello world !! \r\n");
-  HAL_UART_Transmit(&huart9, "hello Uart6!! \r\n", 16, 10);
+  //HAL_UART_Transmit(&huart9, "hello Uart6!! \r\n", 16, 10);
   HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_RESET);
   HAL_Delay(500);
   HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_SET);
@@ -483,6 +483,7 @@ int main(void)
   printf("send : send string data \r\n");
   printf("hexs : send hex data \r\n");
   printf("recv : recv count number \r\n");
+  printf("reset: FPGA reset \r\n");
   //printf(">>");
   HAL_UART_Transmit(&huart3, (uint8_t *)">", 1, 0xFFFF);
   while (1)
@@ -560,6 +561,15 @@ int main(void)
             free(recv_data);
             //recv funcion
         }
+        else if(strncmp(rx_buffer, "reset", 5) == 0)
+        {
+        	printf("FPGA reset\r\n");
+			HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_RESET);
+			HAL_Delay(500);
+			HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_SET);
+			HAL_Delay(500);
+			printf("FPGA reset complete!\r\n");
+        }
         else if(strncmp(rx_buffer, "help", 4) == 0)
         {//set
             printf("help : show CMD list\r\n");
@@ -567,8 +577,9 @@ int main(void)
             printf("example : format=quad, dummy cycle 2, instruction AB, Addr = 1234 \r\n");
             printf(">sett q,2,AB,1234<LF>  \r\n");
             printf("send : send string data \r\n");
-		  printf("hexs : send hex data \r\n");
-		  printf("recv : recv count number \r\n");
+		    printf("hexs : send hex data \r\n");
+		    printf("recv : recv count number \r\n");
+		    printf("reset: FPGA reset \r\n");
         }
         else
         {//not cmd
@@ -669,7 +680,7 @@ static void MX_OCTOSPI1_Init(void)
   hospi1.Init.FreeRunningClock = HAL_OSPI_FREERUNCLK_DISABLE;
   hospi1.Init.ClockMode = HAL_OSPI_CLOCK_MODE_0;
   hospi1.Init.WrapSize = HAL_OSPI_WRAP_NOT_SUPPORTED;
-  hospi1.Init.ClockPrescaler = 1;
+  hospi1.Init.ClockPrescaler = 8;
   hospi1.Init.SampleShifting = HAL_OSPI_SAMPLE_SHIFTING_NONE;
   hospi1.Init.DelayHoldQuarterCycle = HAL_OSPI_DHQC_DISABLE;
   hospi1.Init.ChipSelectBoundary = 0;
@@ -730,54 +741,6 @@ static void MX_RTC_Init(void)
 }
 
 /**
-  * @brief UART9 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART9_Init(void)
-{
-
-  /* USER CODE BEGIN UART9_Init 0 */
-
-  /* USER CODE END UART9_Init 0 */
-
-  /* USER CODE BEGIN UART9_Init 1 */
-
-  /* USER CODE END UART9_Init 1 */
-  huart9.Instance = UART9;
-  huart9.Init.BaudRate = 115200;
-  huart9.Init.WordLength = UART_WORDLENGTH_8B;
-  huart9.Init.StopBits = UART_STOPBITS_1;
-  huart9.Init.Parity = UART_PARITY_NONE;
-  huart9.Init.Mode = UART_MODE_TX_RX;
-  huart9.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart9.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart9.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart9.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart9.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart9) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart9, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart9, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart9) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART9_Init 2 */
-
-  /* USER CODE END UART9_Init 2 */
-
-}
-
-/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -834,14 +797,16 @@ static void MX_USART3_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOG_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
 
@@ -849,13 +814,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(RSTn_GPIO_Port, RSTn_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SPI_EN_MOD2_GPIO_Port, SPI_EN_MOD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LED_GREEN_Pin|LED_RED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SPI_EN_MOD2_GPIO_Port, SPI_EN_MOD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_YELLOW_GPIO_Port, LED_YELLOW_Pin, GPIO_PIN_RESET);
@@ -873,6 +838,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(RSTn_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : SPI_EN_MOD2_Pin */
+  GPIO_InitStruct.Pin = SPI_EN_MOD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI_EN_MOD2_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin */
   GPIO_InitStruct.Pin = LED_GREEN_Pin|LED_RED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -887,13 +859,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_FS_PWR_EN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SPI_EN_MOD2_Pin */
-  GPIO_InitStruct.Pin = SPI_EN_MOD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(SPI_EN_MOD2_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pin : USB_FS_OVCR_Pin */
   GPIO_InitStruct.Pin = USB_FS_OVCR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -907,6 +872,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_YELLOW_GPIO_Port, &GPIO_InitStruct);
 
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */

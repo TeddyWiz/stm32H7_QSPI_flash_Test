@@ -1,0 +1,10 @@
+main.c:74:5:_write	2
+main.c:83:6:HAL_UART_RxCpltCallback	2
+main.c:111:6:Hex2Char	7
+main.c:135:6:qspi_set_parse	12
+main.c:209:6:qspi_set_parameter	4
+main.c:245:6:send_spi_data	3
+main.c:265:6:recv_spi_data	3
+main.c:600:6:SystemClock_Config	4
+main.c:288:5:main	25
+main.c:887:6:Error_Handler	1

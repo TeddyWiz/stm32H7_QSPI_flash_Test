@@ -55,7 +55,6 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern UART_HandleTypeDef huart9;
 extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
 
@@ -222,20 +221,6 @@ void USART3_IRQHandler(void)
   /* USER CODE BEGIN USART3_IRQn 1 */
 
   /* USER CODE END USART3_IRQn 1 */
-}
-
-/**
-  * @brief This function handles UART9 global interrupt.
-  */
-void UART9_IRQHandler(void)
-{
-  /* USER CODE BEGIN UART9_IRQn 0 */
-
-  /* USER CODE END UART9_IRQn 0 */
-  HAL_UART_IRQHandler(&huart9);
-  /* USER CODE BEGIN UART9_IRQn 1 */
-
-  /* USER CODE END UART9_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
