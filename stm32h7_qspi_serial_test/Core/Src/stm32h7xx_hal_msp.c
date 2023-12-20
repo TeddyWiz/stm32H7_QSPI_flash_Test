@@ -105,14 +105,14 @@ void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
     __HAL_RCC_OSPI1_CLK_ENABLE();
 
     __HAL_RCC_GPIOF_CLK_ENABLE();
-    __HAL_RCC_GPIOE_CLK_ENABLE();
+    __HAL_RCC_GPIOG_CLK_ENABLE();
     /**OCTOSPI1 GPIO Configuration
     PF6     ------> OCTOSPIM_P1_IO3
     PF7     ------> OCTOSPIM_P1_IO2
     PF8     ------> OCTOSPIM_P1_IO0
     PF9     ------> OCTOSPIM_P1_IO1
     PF10     ------> OCTOSPIM_P1_CLK
-    PE11     ------> OCTOSPIM_P1_NCS
+    PG6     ------> OCTOSPIM_P1_NCS
     */
     GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -128,12 +128,12 @@ void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
     GPIO_InitStruct.Alternate = GPIO_AF9_OCTOSPIM_P1;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_11;
+    GPIO_InitStruct.Pin = GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF11_OCTOSPIM_P1;
-    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+    GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPIM_P1;
+    HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /* USER CODE BEGIN OCTOSPI1_MspInit 1 */
 
@@ -165,12 +165,12 @@ void HAL_OSPI_MspDeInit(OSPI_HandleTypeDef* hospi)
     PF8     ------> OCTOSPIM_P1_IO0
     PF9     ------> OCTOSPIM_P1_IO1
     PF10     ------> OCTOSPIM_P1_CLK
-    PE11     ------> OCTOSPIM_P1_NCS
+    PG6     ------> OCTOSPIM_P1_NCS
     */
     HAL_GPIO_DeInit(GPIOF, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9
                           |GPIO_PIN_10);
 
-    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_11);
+    HAL_GPIO_DeInit(GPIOG, GPIO_PIN_6);
 
   /* USER CODE BEGIN OCTOSPI1_MspDeInit 1 */
 
@@ -197,7 +197,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
   /** Initializes the peripherals clock
   */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_HSE_DIV2;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
       Error_Handler();
